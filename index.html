@@ -289,6 +289,20 @@ async function boot(){
       if (p.new && p.new.id === 1){ settings = Object.assign({}, settings, p.new); renderBrand(); renderFooter(); }
     })
     .subscribe();
+  /* Live sync for articles: new/edited/deleted articles appear on every open copy without reloading.
+     Quiet refresh: it never pulls someone out of an article or the editor they are in. */
+  let liveT;
+  db.channel("articles-live")
+    .on("postgres_changes", { event: "*", schema: "public", table: "articles" }, () => {
+      clearTimeout(liveT);
+      liveT = setTimeout(async () => {
+        const { data, error } = await db.from("articles").select("*").order("created_at", { ascending: false });
+        if (error) return;
+        articles = data;
+        if (!$("listV").classList.contains("hide")) renderList();
+      }, 400);
+    })
+    .subscribe();
 }
 async function setSession(s){
   session = s; isAdmin = false;
